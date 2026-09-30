@@ -1,103 +1,95 @@
-# :package_description
+# Laravel Storage
 
-[![Latest Version on Packagist](https://img.shields.io/packagist/v/:vendor_slug/:package_slug.svg?style=flat-square)](https://packagist.org/packages/:vendor_slug/:package_slug)
-[![GitHub Tests Action Status](https://github.com/spatie/package-skeleton-laravel/actions/workflows/run-tests.yml/badge.svg)](https://github.com/:vendor_slug/:package_slug/actions?query=workflow%3Arun-tests+branch%3Amain)
-[![GitHub Code Style Action Status](https://github.com/spatie/package-skeleton-laravel/actions/workflows/fix-php-code-style-issues.yml/badge.svg)](https://github.com/:vendor_slug/:package_slug/actions?query=workflow%3A"Fix+PHP+code+style+issues"+branch%3Amain)
-[![Total Downloads](https://img.shields.io/packagist/dt/:vendor_slug/:package_slug.svg?style=flat-square)](https://packagist.org/packages/:vendor_slug/:package_slug)
-<!--delete-->
----
-This repo can be used to scaffold a Laravel package. Follow these steps to get started:
-
-1. Press the "Use this template" button at the top of this repo to create a new repo with the contents of this skeleton.
-2. Run "php ./configure.php" to run a script that will replace all placeholders throughout all the files.
-
-   To run it unattended — from a script, or by handing it to a coding agent — pass `--no-interaction`
-   (`-n`) and the answers as options. It never prompts, and exits non-zero with a message naming any
-   option it still needs:
-
-   ```bash
-   php ./configure.php -n --vendor-name="Spatie" --package-name="laravel-ray"
-   ```
-
-   Run "php ./configure.php --help" for the full list of options.
-3. Have fun creating your package.
-4. If you need help creating a package, consider picking up our <a href="https://laravelpackage.training">Laravel Package Training</a> video course.
----
-<!--/delete-->
-This is where your description should go. Limit it to a paragraph or two. Consider adding a small example.
-
-## Support us
-
-[<img src="https://github-ads.s3.eu-central-1.amazonaws.com/:package_name.jpg?t=1" width="419px" />](https://spatie.be/github-ad-click/:package_name)
-
-We invest a lot of resources into creating [best in class open source packages](https://spatie.be/open-source). You can support us by [buying one of our paid products](https://spatie.be/open-source/support-us).
-
-We highly appreciate you sending us a postcard from your hometown, mentioning which of our package(s) you are using. You'll find our address on [our contact page](https://spatie.be/about-us). We publish all received postcards on [our virtual postcard wall](https://spatie.be/open-source/postcards).
+`curly-deni/laravel-storage` adds polymorphic file records and filesystem helpers
+to Laravel applications. The package namespace is `Aesis\Storage`.
 
 ## Installation
 
-You can install the package via composer:
-
 ```bash
-composer require :vendor_slug/:package_slug
-```
-
-You can publish and run the migrations with:
-
-```bash
-php artisan vendor:publish --tag=":package_slug-migrations"
+composer require curly-deni/laravel-storage
+php artisan vendor:publish --tag="storage-migrations"
 php artisan migrate
 ```
 
-You can publish the config file with:
+Publish the configuration when you need to change the defaults:
 
 ```bash
-php artisan vendor:publish --tag=":package_slug-config"
+php artisan vendor:publish --tag="storage-config"
 ```
 
-This is the contents of the published config file:
+The `storage.table` option defaults to `storage__files`, preserving the table
+name used by the application module. Set `storage.public_disk` to override the
+default disk. When it is `null`, the package uses `filesystems.public` if your
+application defines it, and otherwise uses `public`.
+
+## Store files
+
+Files are associated with an Eloquent model through a nullable polymorphic
+`owner` relation. The default `storeContents` method writes to the configured
+public disk. Other methods allow selecting a disk or copying a stream/file from
+another disk.
 
 ```php
-return [
-];
+use Aesis\Storage\Models\File;
+
+$file = File::storeContents($user, 'avatars', $contents, 'png', 'image/png');
+$url = $file->resolvedUrl();
+
+$file->delete(); // Deletes the stored object and its database record.
 ```
 
-Optionally, you can publish the views using
+Available storage methods are `storeContents`, `storeContentsOnDisk`,
+`storeStreamOnDisk`, and `storeFromDisk`. An `external` filesystem value treats
+the file path as an already resolved URL and skips filesystem deletion.
 
-```bash
-php artisan vendor:publish --tag=":package_slug-views"
-```
+## Filesystem adapter
 
-## Usage
+The package registers the `aesis_s3` filesystem driver. It retains the path
+prefix from an S3 endpoint when building URLs, including path-style endpoints
+used by S3-compatible services. Disks using the driver keep Laravel's regular
+S3 options such as `key`, `secret`, `region`, `bucket`, `url`, `endpoint`, and
+`use_path_style_endpoint`.
+
+The source application adds two disk options consumed by the package's
+`accessUrl` method:
+
+- `url_access` selects URL generation. `public` calls the disk's `url()` method;
+  any other value generates a temporary URL.
+- `temporary_url_ttl` sets the default temporary URL lifetime in minutes. It
+  defaults to `30` when omitted and is used unless a caller passes an explicit
+  expiration time.
+
+The private S3 disk can also set Laravel's `temporary_url` option to replace
+the base URL used for signed links. The custom S3 adapter preserves any path
+prefix in that URL. This is useful when the S3 API endpoint and the URL exposed
+to clients are different.
+
+For example, the source app configures private files for expiring URLs and
+public files for stable URLs:
 
 ```php
-$:variable = new VendorName\Skeleton();
-echo $:variable->echoPhrase('Hello, VendorName!');
+'s3-private' => [
+    'driver' => 'aesis_s3',
+    // Laravel S3 credentials, bucket, endpoint, and path-style options...
+    'url_access' => 'temporary',
+    'temporary_url_ttl' => 30,
+],
+
+'s3-public' => [
+    'driver' => 'aesis_s3',
+    // Laravel S3 credentials, bucket, endpoint, and path-style options...
+    'url_access' => 'public',
+],
 ```
 
-## Testing
+## Testing and code style
 
 ```bash
 composer test
+composer analyse
+composer format
 ```
-
-## Changelog
-
-Please see [CHANGELOG](CHANGELOG.md) for more information on what has changed recently.
-
-## Contributing
-
-Please see [CONTRIBUTING](CONTRIBUTING.md) for details.
-
-## Security Vulnerabilities
-
-Please review [our security policy](../../security/policy) on how to report security vulnerabilities.
-
-## Credits
-
-- [:author_name](https://github.com/:author_username)
-- [All Contributors](../../contributors)
 
 ## License
 
-The MIT License (MIT). Please see [License File](LICENSE.md) for more information.
+MIT. See [LICENSE.md](LICENSE.md).

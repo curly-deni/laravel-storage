@@ -1,37 +1,42 @@
 <?php
 
-namespace VendorName\Skeleton\Tests;
+namespace Aesis\Storage\Tests;
 
-use Illuminate\Database\Eloquent\Factories\Factory;
+use Aesis\Storage\StorageServiceProvider;
+use Aesis\Storage\Tests\Fixtures\Owner;
 use Orchestra\Testbench\TestCase as Orchestra;
-use VendorName\Skeleton\SkeletonServiceProvider;
 
 class TestCase extends Orchestra
 {
+    public Owner $owner;
+
     protected function setUp(): void
     {
         parent::setUp();
 
-        Factory::guessFactoryNamesUsing(
-            fn (string $modelName) => 'VendorName\\Skeleton\\Database\\Factories\\'.class_basename($modelName).'Factory'
-        );
+        $this->artisan('vendor:publish', [
+            '--tag' => 'storage-migrations',
+            '--force' => true,
+        ]);
+        $this->artisan('migrate');
+
     }
 
     protected function getPackageProviders($app)
     {
         return [
-            SkeletonServiceProvider::class,
+            StorageServiceProvider::class,
         ];
     }
 
-    public function getEnvironmentSetUp($app)
+    protected function getEnvironmentSetUp($app): void
     {
         config()->set('database.default', 'testing');
-
-        /*
-         foreach (\Illuminate\Support\Facades\File::allFiles(__DIR__ . '/../database/migrations') as $migration) {
-            (include $migration->getRealPath())->up();
-         }
-         */
+        config()->set('database.connections.testing', [
+            'driver' => 'sqlite',
+            'database' => ':memory:',
+            'prefix' => '',
+            'foreign_key_constraints' => true,
+        ]);
     }
 }
